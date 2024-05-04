@@ -1,0 +1,81 @@
+name: Main build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - no-multisig
+
+jobs:
+  commit-lint:
+    name: Lint Commit Message
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Lint commit message
+        uses: wagoid/commitlint-github-action@v4
+
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    needs: [commit-lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get Node.js version #https://github.com/actions/setup-node/pull/338
+        id: nvm
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.nvm.outputs.NODE_VERSION }}
+          cache: 'yarn'
+      - name: Install modules
+        run: yarn install && yarn hardhat typechain && cd frontend && yarn install
+      - name: Lint frontend
+        run: yarn lint:frontend
+
+  lint-contracts:
+    name: Lint Contracts
+    runs-on: ubuntu-latest
+    needs: [commit-lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get Node.js version #https://github.com/actions/setup-node/pull/338
+        id: nvm
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.nvm.outputs.NODE_VERSION }}
+          cache: 'yarn'
+      - name: Install modules
+        run: yarn install
+      - name: Lint contracts
+        run: yarn lint:contracts
+
+  test-contracts:
+    name: Run Contract Tests
+    runs-on: ubuntu-latest
+    needs: [commit-lint, lint-contracts]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get Node.js version #https://github.com/actions/setup-node/pull/338
+        id: nvm
+        run: echo ::set-output name=NODE_VERSION::$(cat .nvmrc)
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ steps.nvm.outputs.NODE_VERSION }}
+          cache: 'yarn'
+      - name: Install modules
+        run: yarn install
+      - name: Run tests
+        run: yarn test:contracts
+  
+  # TODO: test-frontend
